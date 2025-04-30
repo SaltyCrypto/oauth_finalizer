@@ -1,15 +1,19 @@
 import streamlit as st
 from google_auth_oauthlib.flow import Flow
 
+st.set_page_config(page_title="Google Ads OAuth Finalizer", layout="centered")
 st.title("🔐 Google Ads OAuth Finalizer")
 
-# -- Use secrets from Streamlit Cloud
+# ✅ Replace this with your actual Streamlit Cloud app URL
+REDIRECT_URI = "https://oappfinalizer-uax2d6ijwttkmj57ybnomg.streamlit.app"
+
+# ✅ Load credentials from Streamlit Secrets
 CLIENT_ID = st.secrets["google_ads"]["client_id"]
 CLIENT_SECRET = st.secrets["google_ads"]["client_secret"]
-REDIRECT_URI = "https://your-app-name.streamlit.app"  # Replace this!
 
 SCOPES = ["https://www.googleapis.com/auth/adwords"]
 
+# Set up OAuth flow
 flow = Flow.from_client_config(
     {
         "web": {
@@ -32,11 +36,13 @@ auth_url, _ = flow.authorization_url(
 
 st.markdown(f"[👉 Click here to authorize with Google]({auth_url})")
 
-query_params = st.experimental_get_query_params()
+# ✅ Use new query param API (replaces deprecated one)
+query_params = st.query_params
+
 if "code" in query_params:
-    code = query_params["code"][0]
+    code = query_params["code"]
     flow.fetch_token(code=code)
     creds = flow.credentials
     st.success("✅ Refresh Token Generated!")
     st.code(creds.refresh_token, language="bash")
-    st.info("Copy this into your Streamlit `st.secrets` to finalize setup.")
+    st.info("Copy this token into your main app’s `st.secrets` or `google-ads.yaml`.")
