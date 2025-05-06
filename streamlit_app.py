@@ -1,48 +1,34 @@
 import streamlit as st
-from google_auth_oauthlib.flow import Flow
+from google.ads.googleads.client import GoogleAdsClient
+from google.ads.googleads.config import load_from_dict
 
-st.set_page_config(page_title="Google Ads OAuth Finalizer", layout="centered")
-st.title("🔐 Google Ads OAuth Finalizer")
+st.set_page_config(page_title="OAuth Finalizer + Token Diagnostic", layout="centered")
+st.title("🔐 Google Ads OAuth Finalizer + Diagnostic")
 
-# ✅ Replace this with your actual Streamlit Cloud app URL
-REDIRECT_URI = "https://oappfinalizer-uax2d6ijwttkmj57ybnomg.streamlit.app"
+config_dict = {
+    "developer_token": st.secrets["google_ads"]["developer_token"],
+    "client_id": st.secrets["google_ads"]["client_id"],
+    "client_secret": st.secrets["google_ads"]["client_secret"],
+    "refresh_token": st.secrets["google_ads"]["refresh_token"],
+    "login_customer_id": st.secrets["google_ads"]["login_customer_id"],
+    "use_proto_plus": True
+}
 
-# ✅ Load credentials from Streamlit Secrets
-CLIENT_ID = st.secrets["google_ads"]["client_id"]
-CLIENT_SECRET = st.secrets["google_ads"]["client_secret"]
+try:
+    client = GoogleAdsClient.load_from_dict(config_dict)
+    service = client.get_service("CustomerService")
 
-SCOPES = ["https://www.googleapis.com/auth/adwords"]
+    if st.button("🔍 Show Accessible Customer Accounts"):
+        response = service.list_accessible_customers()
+        customer_ids = [res.split("/")[-1] for res in response.resource_names]
+        st.success("✅ Token is valid and connected.")
+        st.write("Accessible Customer IDs:")
+        for cid in customer_ids:
+            st.code(cid)
+        if "3627831893" in customer_ids:
+            st.success("🎯 ID 362-783-1893 is accessible ✅")
+        else:
+            st.warning("⚠️ ID 362-783-1893 is NOT accessible with this token.")
 
-# Set up OAuth flow
-flow = Flow.from_client_config(
-    {
-        "web": {
-            "client_id": CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [REDIRECT_URI]
-        }
-    },
-    scopes=SCOPES,
-    redirect_uri=REDIRECT_URI
-)
-
-auth_url, _ = flow.authorization_url(
-    prompt="consent",
-    access_type="offline",
-    include_granted_scopes="true"
-)
-
-st.markdown(f"[👉 Click here to authorize with Google]({auth_url})")
-
-# ✅ Use new query param API (replaces deprecated one)
-query_params = st.query_params
-
-if "code" in query_params:
-    code = query_params["code"]
-    flow.fetch_token(code=code)
-    creds = flow.credentials
-    st.success("✅ Refresh Token Generated!")
-    st.code(creds.refresh_token, language="bash")
-    st.info("Copy this token into your main app’s `st.secrets` or `google-ads.yaml`.")
+except Exception as e:
+    st.error(f"❌ Google Ads error: {e}")
